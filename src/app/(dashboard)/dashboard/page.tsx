@@ -152,7 +152,7 @@ export default function Dashboard() {
                     </span>
                     {notice.createdAt && (
                       <span className="text-xs text-slate-400">
-                        {new Date(notice.createdAt.seconds * 1000).toLocaleDateString()}
+                        {new Date((notice.createdAt as any).seconds * 1000).toLocaleDateString()}
                       </span>
                     )}
                   </div>
