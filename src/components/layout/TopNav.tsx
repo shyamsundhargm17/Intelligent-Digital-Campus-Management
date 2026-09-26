@@ -1,4 +1,5 @@
-import { Bell, Search, Menu } from 'lucide-react';
+import { Bell, Search, Menu, UserCircle } from 'lucide-react';
+import Link from 'next/link';
 
 export function TopNav() {
   return (
@@ -22,11 +23,11 @@ export function TopNav() {
           <Bell className="h-5 w-5" />
           <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-accent-500 ring-2 ring-white dark:ring-surface-900"></span>
         </button>
-        <div className="flex md:hidden items-center gap-2">
-          <div className="h-8 w-8 rounded-full overflow-hidden border border-slate-200 dark:border-surface-800">
-            <img src="/images/profile.jpg" alt="Profile" className="h-full w-full object-cover" />
+        <Link href="/profile" className="flex md:hidden items-center gap-2">
+          <div className="h-8 w-8 rounded-full overflow-hidden border border-slate-200 dark:border-surface-800 bg-brand-100 flex items-center justify-center">
+            <UserCircle className="h-5 w-5 text-brand-600" />
           </div>
-        </div>
+        </Link>
       </div>
     </header>
   );

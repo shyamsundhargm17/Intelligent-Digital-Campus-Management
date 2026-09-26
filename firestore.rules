@@ -1,0 +1,131 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ==========================================
+    // CORE AUTHENTICATION FUNCTIONS
+    // ==========================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    function getUserRole() {
+      return getUserData().role;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && getUserRole() == 'admin';
+    }
+
+    function isFaculty() {
+      return isAuthenticated() && getUserRole() == 'faculty';
+    }
+
+    function isStudent() {
+      return isAuthenticated() && getUserRole() == 'student';
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // ==========================================
+    // DATA VALIDATION FUNCTIONS
+    // ==========================================
+    function isString(val) { return val is string; }
+    function isNumber(val) { return val is number; }
+    function isTimestamp(val) { return val is timestamp; }
+    
+    // Check if the user is not tampering with system fields
+    function unchanged(field) {
+      return !(field in request.resource.data) || resource.data[field] == request.resource.data[field];
+    }
+
+    // ==========================================
+    // 1. USERS COLLECTION
+    // ==========================================
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      
+      // Strict creation rule for new students:
+      // Must contain correct ID, must be a student, name must be a string, and cannot impersonate others
+      allow create: if isAdmin() || (
+        isOwner(userId) && 
+        request.resource.data.role == 'student' &&
+        request.resource.data.uid == userId &&
+        isString(request.resource.data.name) &&
+        isString(request.resource.data.email)
+      );
+      
+      // Only Admins can change roles or IDs.
+      allow update: if isAdmin() || (
+        isOwner(userId) && 
+        unchanged('role') && 
+        unchanged('uid') &&
+        unchanged('email') &&
+        unchanged('createdAt')
+      );
+      
+      allow delete: if isAdmin();
+    }
+
+    // ==========================================
+    // 2. COMPLAINTS COLLECTION
+    // ==========================================
+    match /complaints/{complaintId} {
+      allow read: if isAdmin() || isFaculty() || (isStudent() && resource.data.studentId == request.auth.uid);
+      
+      // Strict constraint: students can only create complaints for themselves, must have title/desc
+      allow create: if isStudent() && 
+                    request.resource.data.studentId == request.auth.uid &&
+                    isString(request.resource.data.title) &&
+                    isString(request.resource.data.description) &&
+                    request.resource.data.status == 'Pending';
+      
+      // Students can't update. Only Faculty/Admin can update status.
+      allow update: if isAdmin() || (
+        isFaculty() && unchanged('studentId') && unchanged('title') && unchanged('description')
+      );
+      
+      allow delete: if isAdmin();
+    }
+
+    // ==========================================
+    // 3. ATTENDANCE COLLECTION
+    // ==========================================
+    match /attendance/{recordId} {
+      allow read: if isAdmin() || isFaculty() || (isStudent() && resource.data.studentId == request.auth.uid);
+      allow write: if isAdmin() || isFaculty();
+    }
+
+    // ==========================================
+    // 4. NOTICES & ANNOUNCEMENTS
+    // ==========================================
+    match /notices/{noticeId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin() || isFaculty();
+    }
+
+    // ==========================================
+    // 5. EVENTS COLLECTION
+    // ==========================================
+    match /events/{eventId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin() || isFaculty();
+    }
+
+    // ==========================================
+    // 6. CERTIFICATES COLLECTION
+    // ==========================================
+    match /certificates/{certId} {
+      allow read: if isAdmin() || isFaculty() || (isStudent() && resource.data.studentId == request.auth.uid);
+      allow create: if isStudent() && request.resource.data.studentId == request.auth.uid;
+      allow update, delete: if isAdmin() || (isStudent() && resource.data.studentId == request.auth.uid);
+    }
+  }
+}

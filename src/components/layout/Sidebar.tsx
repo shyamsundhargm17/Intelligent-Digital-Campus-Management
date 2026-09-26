@@ -10,12 +10,17 @@ import {
   MessageSquareWarning, 
   Award, 
   BellRing, 
-  CreditCard 
+  CreditCard,
+  UserCircle
 } from 'lucide-react';
+import { auth, db } from '@/lib/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
-  { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Attendance', href: '/attendance', icon: CalendarCheck },
   { name: 'Academics', href: '/academics', icon: GraduationCap },
   { name: 'Events', href: '/events', icon: CalendarDays },
@@ -23,15 +28,33 @@ const navItems = [
   { name: 'Certificates', href: '/certificates', icon: Award },
   { name: 'Notices', href: '/notices', icon: BellRing },
   { name: 'Fees', href: '/fees', icon: CreditCard },
+  { name: 'Profile', href: '/profile', icon: UserCircle },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
+  const [userData, setUserData] = useState<any>(null);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        try {
+          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          if (userDoc.exists()) {
+            setUserData(userDoc.data());
+          }
+        } catch (err) {
+          console.error("Error fetching user for sidebar:", err);
+        }
+      }
+    });
+    return () => unsubscribe();
+  }, []);
 
   return (
     <aside className="fixed left-0 top-0 z-40 h-screen w-64 border-r border-slate-200/50 bg-white/80 backdrop-blur-xl dark:border-white/10 dark:bg-surface-900/80 hidden md:flex flex-col transition-all duration-300">
       <div className="flex h-16 items-center px-6 border-b border-slate-200/50 dark:border-white/10">
-        <Link href="/" className="flex items-center gap-2">
+        <Link href="/dashboard" className="flex items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-brand-600 to-accent-500 shadow-lg shadow-brand-500/20">
             <span className="text-lg font-bold text-white">V</span>
           </div>
@@ -70,15 +93,19 @@ export function Sidebar() {
       </nav>
 
       <div className="p-4 border-t border-slate-200/50 dark:border-white/10">
-        <div className="glass-card p-4 rounded-xl flex items-center gap-3 bg-gradient-to-br from-brand-50 to-accent-50 dark:from-brand-900/20 dark:to-accent-900/20">
-          <div className="h-10 w-10 rounded-full overflow-hidden border-2 border-white dark:border-surface-800 shadow-sm">
-            <img src="/images/profile.jpg" alt="Student Profile" className="h-full w-full object-cover" />
+        <Link href="/profile" className="block glass-card p-4 rounded-xl flex items-center gap-3 bg-gradient-to-br from-brand-50 to-accent-50 dark:from-brand-900/20 dark:to-accent-900/20 hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer">
+          <div className="h-10 w-10 rounded-full overflow-hidden border-2 border-white dark:border-surface-800 shadow-sm bg-brand-100 flex items-center justify-center">
+            {userData?.avatarUrl ? (
+              <img src={userData.avatarUrl} alt="Profile" className="h-full w-full object-cover" />
+            ) : (
+              <UserCircle className="h-6 w-6 text-brand-600" />
+            )}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">Alex Johnson</p>
-            <p className="text-xs text-slate-500 dark:text-slate-400 truncate">Computer Science, 3rd Yr</p>
+            <p className="text-sm font-semibold text-slate-900 dark:text-white truncate capitalize">{userData ? userData.name : 'Loading...'}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 truncate capitalize">{userData ? userData.department : ''}</p>
           </div>
-        </div>
+        </Link>
       </div>
     </aside>
   );
